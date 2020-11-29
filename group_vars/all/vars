@@ -1,0 +1,52 @@
+
+# Proxmox vars
+proxmox_description: "Deployed with ansible-okd-proxmox, see https://github.com/pvelati/ansible-okd-proxmox"
+proxmox_api_host: "{{ vault_proxmox_api_host }}"
+proxmox_api_password: "{{ vault_proxmox_api_password }}"
+proxmox_api_user: "{{ vault_proxmox_api_user }}"
+proxmox_node: "{{ vault_proxmox_node }}"
+
+proxmox_template_storage: archive
+proxmox_template_name: debian-10-standard_10.5-1_amd64.tar.gz
+
+proxmox_net_bridge: vmbr0
+proxmox_net_vlan: 20
+
+proxmox_storage: nvme
+
+# HAprox vars
+haproxy_id: "29998"
+haproxy_mac: DE:1A:C3:A5:A4:2C
+haproxy_pubkey: "{{ lookup('file', '{{ ansible_env.HOME }}/.ssh/id_rsa.pub') }}"
+
+# OKD cluster vars
+okd_master_nodes: 3
+okd_worker_nodes: 0
+okd_version: 4.5.0-0.okd-2020-10-15-235428
+okd_fcos_version: 32.20201104.3.0
+
+okd_template_id: "29999"
+
+okd_bootstrap_id: "30000"
+okd_bootstrap_mac: 72:3E:E6:0C:0B:B3
+okd_bootstrap_ip: 192.168.0.89
+
+okd_vms:
+  - name: okd-master-0
+    id: "30001"
+    mac: d6:d8:4d:d5:39:08
+    ip: 192.168.0.90
+  - name: okd-master-1
+    id: "30002"
+    mac: 46:69:a9:bc:0f:54
+    ip: 192.168.0.91
+  - name: okd-master-2
+    id: "30003"
+    mac: 36:37:ad:87:85:63
+    ip: 192.168.0.92
+
+okd_base_domain: 'yourdomain.local'
+okd_cluster_name: 'test'
+
+okd_pull_secret: '{"auths":{"fake":{"auth": "bar"}}}'
+okd_ssh_key: 'ssh-rsa AAAA....0='

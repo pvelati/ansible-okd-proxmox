@@ -1,0 +1,51 @@
+---
+- name: Create template fcos vm, without disk and net
+  community.general.proxmox_kvm:
+    proxmox_default_behavior: no_defaults
+    description: "{{ proxmox_description }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    vmid: "{{ okd_template_id }}"
+    name: "okd-fcos-template"
+    node: "{{ proxmox_node }}"
+    scsihw: virtio-scsi-pci
+    cores: 4
+    memory: 16384
+    state: present
+
+- name: Download and import qcow2 image for fcos template
+  delegate_to: "{{ groups['proxmox'] | first }}"
+  block:
+    - name: Gather facts from Proxmox host
+      ansible.builtin.setup:
+      delegate_to: "{{ groups['proxmox'] | first }}"
+
+    - name: Check if qcow2 file is present
+      stat:
+        path: "{{ ansible_env.HOME }}/fedora-coreos.qcow2"
+      register: qcow2_result
+
+    - name: Download FCOS qcow2 image and rename archive
+      get_url:
+        url: "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/{{ okd_fcos_version }}/x86_64/fedora-coreos-{{ okd_fcos_version }}-qemu.x86_64.qcow2.xz"
+        dest: "{{ ansible_env.HOME }}/fedora-coreos.qcow2.xz"
+      delegate_to: "{{ groups['proxmox'] | first }}"
+      when: not qcow2_result.stat.exists
+
+    - name: Extract fedora-coreos.qcow2.xz archive using shell because not yet implemented in unarchive module
+      shell: unxz {{ ansible_env.HOME }}/fedora-coreos.qcow2.xz
+      delegate_to: "{{ groups['proxmox'] | first }}"
+      when: not qcow2_result.stat.exists
+
+    - name: Import qcow2 disk in template
+      shell: "qm importdisk {{ okd_template_id }} fedora-coreos.qcow2 {{ proxmox_storage }}"
+
+    - name: Attach disk to vm template
+      shell: "qm set {{ okd_template_id }} --scsi0 {{ proxmox_storage }}:vm-{{ okd_template_id }}-disk-0"
+    
+    - name: Resize disk of the template to 120G
+      shell: "qm resize {{ okd_template_id }} scsi0 +112G"
+    
+    - name: Make vm as template
+      shell: "qm template {{ okd_template_id }}"

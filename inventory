@@ -1,0 +1,5 @@
+[proxmox]
+pve.infra.yourdomain.local ansible_connection=ssh ansible_user=root
+
+[haproxy]
+okd-haproxy.yourdomain.local ansible_connection=ssh ansible_user=root

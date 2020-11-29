@@ -1,0 +1,5 @@
+# Proxmox vars
+vault_proxmox_api_host: NODEFQDN
+vault_proxmox_api_password: ROOTPASSWORD
+vault_proxmox_api_user: root@pam
+vault_proxmox_node: NODENAME

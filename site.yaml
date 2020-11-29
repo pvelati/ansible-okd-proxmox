@@ -1,0 +1,11 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  roles:
+    - prepare-clients
+    - create-haproxy
+    - prepare-template
+    - prepare-ignitions
+    - create-vms

@@ -1,0 +1,36 @@
+---
+- name: Check if oc is present in bin directory
+  stat:
+    path: "{{ ansible_env.HOME }}/bin/oc"
+  changed_when: false
+  register: oc_present
+
+- name: Check if openshift-install is present in bin directory
+  stat:
+    path: "{{ ansible_env.HOME }}/bin/openshift-install"
+  changed_when: false
+  register: openshift_install_present
+
+- name: Create bin directory in home
+  file:
+    path: "{{ ansible_env.HOME }}/bin"
+    state: directory
+  
+- name: Download oc client if not present
+  unarchive:
+    src: "https://github.com/openshift/okd/releases/download/{{ okd_version }}/openshift-client-linux-{{ okd_version }}.tar.gz"
+    dest: "{{ ansible_env.HOME }}/bin"
+    remote_src: yes
+  when: not oc_present.stat.exists
+
+- name: Download openshift-install client if not present
+  unarchive:
+    src: "https://github.com/openshift/okd/releases/download/{{ okd_version }}/openshift-install-linux-{{ okd_version }}.tar.gz"
+    dest: "{{ ansible_env.HOME }}/bin"
+    remote_src: yes
+  when: not openshift_install_present.stat.exists
+
+- name: Remove README.md file in bin directory
+  file:
+    path: "{{ ansible_env.HOME }}/bin/README.md"
+    state: absent

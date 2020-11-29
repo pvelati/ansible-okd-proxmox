@@ -1,0 +1,81 @@
+---
+- name: Create bootstrap vm, cloned from template
+  community.general.proxmox_kvm:
+    proxmox_default_behavior: no_defaults
+    description: "{{ proxmox_description }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    newid: "{{ okd_bootstrap_id }}"
+    vmid: "{{ okd_template_id }}" 
+    name: "okd-bootstrap"
+    node: "{{ proxmox_node }}"
+    state: present
+    clone: "{{ okd_template_id }}"
+    full: false
+
+- name: Create all masters, cloned from template
+  community.general.proxmox_kvm:
+    proxmox_default_behavior: no_defaults
+    description: "{{ proxmox_description }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    newid: "{{ item.id }}"
+    vmid: "{{ okd_template_id }}" 
+    name: "{{ item.name }}"
+    node: "{{ proxmox_node }}"
+    state: present
+    clone: "{{ okd_template_id }}"
+    full: false
+  loop: "{{ okd_vms }}"
+
+- name: Change vm parameters from Proxmox host
+  delegate_to: "{{ groups['proxmox'] | first }}"
+  block:
+    - name: Gather facts from Proxmox host
+      ansible.builtin.setup:
+      delegate_to: "{{ groups['proxmox'] | first }}"
+
+    - name: Set network for master vms
+      shell: "qm set {{ item.id }} --net0 virtio,bridge={{ proxmox_net_bridge }},macaddr={{ item.mac }},tag={{ proxmox_net_vlan }}"
+      loop: "{{ okd_vms }}"
+    
+    - name: Set network for bootstrap vm
+      shell: "qm set {{ okd_bootstrap_id }} --net0 virtio,bridge={{ proxmox_net_bridge }},macaddr={{ okd_bootstrap_mac }},tag={{ proxmox_net_vlan }}"
+
+    - name: Add args for ignition to master vms
+      lineinfile:
+        dest: "/etc/pve/qemu-server/{{ item.id }}.conf"
+        line: "args: -fw_cfg name=opt/com.coreos/config,file={{ ansible_env.HOME }}/okd/ignitions/master.ign"
+      loop: "{{ okd_vms }}"
+  
+    - name: Add args for ignition to bootstrap vm
+      lineinfile:
+        dest: "/etc/pve/qemu-server/{{ okd_bootstrap_id }}.conf"
+        line: "args: -fw_cfg name=opt/com.coreos/config,file={{ ansible_env.HOME }}/okd/ignitions/bootstrap.ign"
+    
+- name: Start bootstrap vm
+  community.general.proxmox_kvm:
+    proxmox_default_behavior: no_defaults
+    description: "{{ proxmox_description }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    vmid: "{{ okd_bootstrap_id }}"
+    name: "okd-bootstrap"
+    node: "{{ proxmox_node }}"
+    state: started
+
+- name: Start master vms
+  community.general.proxmox_kvm:
+    proxmox_default_behavior: no_defaults
+    description: "{{ proxmox_description }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    vmid: "{{ item.id }}"
+    name: "{{ item.name }}"
+    node: "{{ proxmox_node }}"
+    state: started
+  loop: "{{ okd_vms }}"

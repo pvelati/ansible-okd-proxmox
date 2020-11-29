@@ -1,0 +1,37 @@
+---
+- name: Gather facts from local env
+  ansible.builtin.setup:
+
+- name: Create okd directory
+  file:
+    path: "{{ ansible_env.HOME }}/okd/ignitions"
+    state: directory
+
+- name: Compile install-config.yaml template
+  template:
+    src: install-config.yaml.j2
+    dest: "{{ ansible_env.HOME }}/okd/ignitions/install-config.yaml"
+
+- name: Create manifests
+  shell: "openshift-install create manifests --dir={{ ansible_env.HOME }}/okd/ignitions/"
+
+- name: Create ignition-configs
+  shell: "openshift-install create ignition-configs --dir={{ ansible_env.HOME }}/okd/ignitions/"
+
+- name: Save local home in var
+  set_fact:
+    local_home: "{{ ansible_env.HOME }}"
+    cacheable: yes
+
+- name: Copy okd folder to Proxmox host
+  delegate_to: "{{ groups['proxmox'] | first }}"
+  block:
+    - name: Gather facts from Proxmox host
+      ansible.builtin.setup:
+      delegate_to: "{{ groups['proxmox'] | first }}"
+
+    - copy:
+        src: "{{ local_home }}/okd"
+        dest: "{{ ansible_env.HOME }}"
+        follow: true
+        directory_mode: true

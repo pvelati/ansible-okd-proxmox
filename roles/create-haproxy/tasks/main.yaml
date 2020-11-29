@@ -1,0 +1,74 @@
+---
+- name: Download Debian template
+  shell: "/usr/bin/pveam download {{ proxmox_template_storage }} {{ proxmox_template_name }}"
+  delegate_to: "{{ groups['proxmox'] | first }}"
+
+- name: Create HAproxy container
+  community.general.proxmox:
+    proxmox_default_behavior: no_defaults
+    description: "{{ proxmox_description }}"
+    vmid: "{{ haproxy_id }}"
+    node: "{{ proxmox_node }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    hostname: okd-haproxy
+    pubkey: "{{ haproxy_pubkey }}"
+    ostemplate: '{{ proxmox_template_storage }}:vztmpl/{{ proxmox_template_name }}'
+    netif: '{"net0":"name=eth0,hwaddr={{ haproxy_mac }},ip=dhcp,bridge={{ proxmox_net_bridge }},tag={{ proxmox_net_vlan }}"}'
+    storage: "{{ proxmox_storage }}"
+    state: present
+
+- name: Start HAproxy container
+  community.general.proxmox:
+    proxmox_default_behavior: no_defaults
+    vmid: "{{ haproxy_id }}"
+    node: "{{ proxmox_node }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_password: "{{ proxmox_api_password }}"
+    api_host: "{{ proxmox_api_host }}"
+    hostname: okd-haproxy
+    state: started
+
+- name: Block executed in HAproxy container
+  block:
+    - name: Update the repository cache and install requirements
+      apt:
+        name: "{{ item }}"
+        update_cache: yes
+      loop:
+        - curl
+        - gnupg2
+      retries: 3
+      delay: 3
+
+    - name: Add HAproxy apt signing key
+      apt_key:
+        url: https://haproxy.debian.net/bernat.debian.org.gpg
+        id: 95A42FE8353525F9
+        state: present
+
+    - name: Add HAproxy repository
+      apt_repository:
+        repo: deb http://haproxy.debian.net buster-backports-2.3 main
+        state: present
+        filename: haproxy.list
+
+    - name: Update the repository cache and install HAproxy
+      apt:
+        name: haproxy=2.3.*
+        update_cache: yes
+
+    - name: Compile and copy haproxy.cfg
+      template:
+        src: etc/haproxy/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+      register: haproxy_conf
+
+    - name: Restart HAproxy
+      systemd:
+        state: restarted
+        name: haproxy
+      when: haproxy_conf.changed
+  
+  delegate_to: "{{ groups['haproxy'] | first }}"
