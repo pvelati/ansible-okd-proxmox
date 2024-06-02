@@ -1,2 +1,2 @@
 proxmoxer==1.0.4
-requests==2.31.0
+requests==2.32.0
